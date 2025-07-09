@@ -1,0 +1,81 @@
+(defun c:DesenharRetalhos ()
+  (setq basepoint (getpoint "\nPonto inicial: "))
+  (setq x0 (car basepoint))
+  (setq y0 (cadr basepoint))
+
+  (setq largura_maxima 3000) ; largura útil da chapa
+  (setq espacamento 50) ; espaçamento entre retângulos
+  (setq x x0)
+  (setq y y0)
+  (setq altura_linha_atual 0) ; guarda a maior altura da linha atual
+
+  ;; Lista de retalhos disponíveis (largura altura)
+  (setq retalhos '(
+    (220 1380)
+    (170 890)
+    (345 2990)
+    (250 885)
+    (140 2990)
+    (140 2990)
+    (220 330)
+    (110 1990)
+    (400 2740)
+    (145 2990)
+    (175 145)
+    (195 195)
+    (130 2740)
+    (370 1890)
+    (170 775)
+    (270 320)
+    (140 1860)
+    (140 555)
+    (130 2670)
+  ))
+
+  ;; Ordenar por área (largura * altura)
+  (setq retalhos
+    (vl-sort retalhos
+      (function
+        (lambda (a b)
+          (< (* (car a) (cadr a)) (* (car b) (cadr b)))
+        )
+      )
+    )
+  )
+
+  ;; Laço para desenhar os retângulos
+  (foreach r retalhos
+    (setq largura (nth 0 r))
+    (setq altura (nth 1 r))
+
+    ;; Verifica se cabe na linha atual
+    (if (> (+ x largura) (+ x0 largura_maxima))
+      (progn
+        ;; Quebra linha
+        (setq x x0)
+        (setq y (+ y altura_linha_atual espacamento))
+        (setq altura_linha_atual 0)
+      )
+    )
+
+    ;; Desenha o retângulo
+    (command "RECTANG" (list x y) (list (+ x largura) (+ y altura)))
+
+    ;; Texto vertical no centro
+    (setq cx (+ x (/ largura 2.0)))
+    (setq cy (+ y (/ altura 2.0)))
+    (command "TEXT" (list cx cy) 100 90 (strcat (rtos largura 2 0) "x" (rtos altura 2 0)))
+
+    ;; Atualiza altura da linha se necessário
+    (if (> altura altura_linha_atual)
+      (setq altura_linha_atual altura)
+    )
+
+    ;; Avança na horizontal
+    (setq x (+ x largura espacamento))
+  )
+
+  (command "ZOOM" "E")
+  (princ "\nRetângulos organizados corretamente com espaçamento e sem sobreposição (ordenados por área crescente).")
+  (princ)
+)

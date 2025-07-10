@@ -1,0 +1,87 @@
+(defun c:DesenharRetalhos ()
+  (setq basepoint (getpoint "\nPonto inicial: "))
+  (setq x0 (car basepoint))
+  (setq y0 (cadr basepoint))
+
+  (setq largura_maxima 3000) ; largura útil da chapa
+  (setq espacamento 50) ; espaçamento entre retângulos
+  (setq x x0)
+  (setq y y0)
+  (setq altura_linha_atual 0)
+
+  ;; Lista de retalhos no formato: (largura altura descrição)
+  (setq retalhos '(
+    (130 2700 "#2,00mm-BOA-RETA. -COD -56")
+    (130 2700 "#2,00mm-BOA-RETA. -COD -57")
+    (130 2700 "#2,00mm-BOA-RETA. -COD -58")
+    (130 2700 "#2,00mm-BOA-RETA. -COD -60")
+    (130 2700 "#2,00mm-BOA-RETA. -COD -61")
+    (130 2990 "#2,00mm-BOA-RETA. -COD -62")
+    (120 1180 "#2,00mm-BOA-RETA. -COD -67")
+    (190 1340 "#2,00mm-BOA-RETA. -COD -103")
+    (400 1920 "#2,00mm-BOA-RETA. -COD -106")
+    (1240 1070 "#2,00mm-BOA-RETA. -COD -107")
+    (170 2405 "#2,00mm-BOA-RETA. -COD -108")
+    (510 2990 "#2,00mm-BOA-RETA. -COD -110")
+    (210 860 "#2,00mm-BOA-RETA. -COD -111")
+    (140 1080 "#2,00mm-BOA-RETA. -COD -114")
+    (250 1610 "#2,00mm-BOA-RETA. -COD -115")
+    (210 1305 "#2,00mm-BOA-RETA. -COD -116")
+    (310 2060 "#2,00mm-BOA-RETA. -COD -118")
+    (310 2990 "#2,00mm-BOA-RETA. -COD -119")
+  ))
+
+  (foreach r retalhos
+    (setq largura (nth 0 r))
+    (setq altura (nth 1 r))
+    (setq descricao (nth 2 r))
+
+    ;; Verifica quebra de linha
+    (if (> (+ x largura) (+ x0 largura_maxima))
+      (progn
+        (setq x x0)
+        (setq y (+ y altura_linha_atual espacamento))
+        (setq altura_linha_atual 0)
+      )
+    )
+
+    ;; Desenha o retângulo
+    (command "RECTANG" (list x y) (list (+ x largura) (+ y altura)))
+
+    ;; Texto com dimensões primeiro
+    (setq texto (strcat (itoa largura) " X " (itoa altura) " - " descricao))
+
+    ;; Define lado maior para escala proporcional
+    (setq lado-maior (max largura altura))
+    (setq altura_texto (max 30 (min 60 (/ lado-maior 20.0))))
+
+    ;; Rotação do texto: vertical se altura > largura
+    (setq rotacao (if (> altura largura) 90 0))
+
+    ;; Ponto no canto inferior direito (interno), com margem
+    (setq margem 10)
+    (setq pt-texto
+      (cond
+        ((= rotacao 0)
+         (list (- (+ x largura) margem) (+ y margem))) ; texto horizontal
+        ((= rotacao 90)
+         (list (- (+ x largura) margem) (+ y margem))) ; texto vertical
+      )
+    )
+
+    ;; Inserir o texto
+    (command "TEXT" pt-texto altura_texto rotacao texto)
+
+    ;; Atualizar altura da linha
+    (if (> altura altura_linha_atual)
+      (setq altura_linha_atual altura)
+    )
+
+    ;; Próximo X
+    (setq x (+ x largura espacamento))
+  )
+
+  (command "ZOOM" "E")
+  (princ "\nRetângulos desenhados com texto no formato 'LARG X ALT - DESCRIÇÃO', posicionados no canto inferior direito interno.")
+  (princ)
+)

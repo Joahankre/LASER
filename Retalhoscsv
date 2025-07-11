@@ -1,0 +1,68 @@
+(defun ler-csv (arquivo)
+  (setq lista-retalhos '())
+  (setq arq (open arquivo "r"))
+  (while (setq linha (read-line arq))
+    (setq partes (vl-string-split linha ";")) ; <<< separador alterado para ponto e vírgula
+    (setq largura (atoi (nth 0 partes)))
+    (setq altura (atoi (nth 1 partes)))
+    (setq descricao (nth 2 partes))
+    (setq lista-retalhos (append lista-retalhos (list (list largura altura descricao))))
+  )
+  (close arq)
+  lista-retalhos
+)
+
+(defun c:DesenharRetalhosCSV ()
+  (setq basepoint (getpoint "\nPonto inicial: "))
+  (setq x0 (car basepoint))
+  (setq y0 (cadr basepoint))
+
+  (setq largura_maxima 3000)
+  (setq espacamento 50)
+  (setq x x0)
+  (setq y y0)
+  (setq altura_linha_atual 0)
+
+  ;; Seleciona o arquivo CSV com separador ";"
+  (setq caminho (getfiled "Selecione o arquivo CSV" "" "csv" 0))
+  (setq retalhos (ler-csv caminho))
+
+  (foreach r retalhos
+    (setq largura (nth 0 r))
+    (setq altura (nth 1 r))
+    (setq descricao (nth 2 r))
+
+    (if (> (+ x largura) (+ x0 largura_maxima))
+      (progn
+        (setq x x0)
+        (setq y (+ y altura_linha_atual espacamento))
+        (setq altura_linha_atual 0)
+      )
+    )
+
+    (command "RECTANG" (list x y) (list (+ x largura) (+ y altura)))
+
+    (setq texto (strcat (itoa largura) " X " (itoa altura) " - " descricao))
+    (setq lado-maior (max largura altura))
+    (setq altura_texto (max 30 (min 60 (/ lado-maior 20.0))))
+    (setq rotacao (if (> altura largura) 90 0))
+    (setq margem 10)
+    (setq pt-texto
+      (cond
+        ((= rotacao 0) (list (- (+ x largura) margem) (+ y margem)))
+        ((= rotacao 90) (list (- (+ x largura) margem) (+ y margem)))
+      )
+    )
+    (command "TEXT" pt-texto altura_texto rotacao texto)
+
+    (if (> altura altura_linha_atual)
+      (setq altura_linha_atual altura)
+    )
+
+    (setq x (+ x largura espacamento))
+  )
+
+  (command "ZOOM" "E")
+  (princ "\nDesenho concluído com CSV separado por ponto e vírgula.")
+  (princ)
+)

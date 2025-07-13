@@ -1,0 +1,104 @@
+Sub GerarArquivosDXF_SemUserForm()
+
+    Dim todasAbas As String
+    Dim aba As Worksheet
+    Dim resposta As String
+    Dim selecionadas As Variant
+    Dim nomeAba As Variant
+    Dim i As Integer
+
+    ' Montar lista de planilhas
+    For Each aba In ThisWorkbook.Sheets
+        todasAbas = todasAbas & aba.Name & vbCrLf
+    Next aba
+
+    ' Mostrar ao usuário
+    resposta = InputBox("Digite os nomes das abas que deseja processar, separados por vírgula:" & vbCrLf & _
+                        "(Abas disponíveis:)" & vbCrLf & todasAbas, _
+                        "Selecionar Abas")
+
+    If Trim(resposta) = "" Then
+        MsgBox "Nenhuma aba selecionada.", vbExclamation
+        Exit Sub
+    End If
+
+    selecionadas = Split(resposta, ",")
+
+    ' Remover espaços em branco
+    For i = 0 To UBound(selecionadas)
+        selecionadas(i) = Trim(selecionadas(i))
+    Next i
+
+    Dim ws As Worksheet
+    Dim linha As Long
+    Dim cod As String, espessura As String, qualidade As String
+    Dim largura As Double, altura As Double
+    Dim disponibilidade As String
+    Dim nomeArquivo As String, caminho As String, pastaDestino As String
+    Dim dxfTexto As String
+    Dim fnum As Integer
+
+    ' Processar cada aba selecionada
+    For Each nomeAba In selecionadas
+        On Error Resume Next
+        Set ws = ThisWorkbook.Sheets(nomeAba)
+        On Error GoTo 0
+
+        If ws Is Nothing Then
+            MsgBox "Aba não encontrada: " & nomeAba, vbExclamation
+            Set ws = Nothing
+        Else
+            ' Criar pasta com o nome da aba, se não existir
+            pastaDestino = ThisWorkbook.Path & "\" & nomeAba
+            If Dir(pastaDestino, vbDirectory) = "" Then
+                MkDir pastaDestino
+            End If
+
+            linha = 2
+
+            Do While ws.Cells(linha, 1).Value <> ""
+                cod = Trim(ws.Cells(linha, 1).Value)
+                espessura = Trim(ws.Cells(linha, 2).Value)
+                qualidade = Trim(ws.Cells(linha, 3).Value)
+
+                If IsNumeric(ws.Cells(linha, 4).Value) And IsNumeric(ws.Cells(linha, 5).Value) Then
+                    largura = CDbl(ws.Cells(linha, 4).Value)
+                    altura = CDbl(ws.Cells(linha, 5).Value)
+                Else
+                    linha = linha + 1
+                    GoTo ProximaLinha
+                End If
+
+                disponibilidade = UCase(Trim(ws.Cells(linha, 6).Value))
+
+                If disponibilidade = "DISPONIVEL" Then
+                    ' Montar nome e caminho do arquivo
+                    nomeArquivo = largura & "x" & altura & "_" & Replace(espessura, " ", "") & "_" & _
+                                  Replace(qualidade, " ", "") & "_COD" & cod & ".dxf"
+                    caminho = pastaDestino & "\" & nomeArquivo  ' Corrigido: agora vai para a subpasta da aba
+
+                    ' Conteúdo básico do DXF
+                    dxfTexto = "0" & vbCrLf & "SECTION" & vbCrLf & "2" & vbCrLf & "ENTITIES" & vbCrLf
+                    dxfTexto = dxfTexto & "0" & vbCrLf & "LWPOLYLINE" & vbCrLf & "8" & vbCrLf & "0" & vbCrLf
+                    dxfTexto = dxfTexto & "90" & vbCrLf & "4" & vbCrLf & "70" & vbCrLf & "1" & vbCrLf
+                    dxfTexto = dxfTexto & "10" & vbCrLf & "0.0" & vbCrLf & "20" & vbCrLf & "0.0" & vbCrLf
+                    dxfTexto = dxfTexto & "10" & vbCrLf & largura & vbCrLf & "20" & vbCrLf & "0.0" & vbCrLf
+                    dxfTexto = dxfTexto & "10" & vbCrLf & largura & vbCrLf & "20" & vbCrLf & altura & vbCrLf
+                    dxfTexto = dxfTexto & "10" & vbCrLf & "0.0" & vbCrLf & "20" & vbCrLf & altura & vbCrLf
+                    dxfTexto = dxfTexto & "0" & vbCrLf & "ENDSEC" & vbCrLf & "0" & vbCrLf & "EOF"
+
+                    ' Salvar arquivo
+                    fnum = FreeFile
+                    Open caminho For Output As #fnum
+                    Print #fnum, dxfTexto
+                    Close #fnum
+                End If
+
+ProximaLinha:
+                linha = linha + 1
+            Loop
+        End If
+    Next nomeAba
+
+    MsgBox "Arquivos DXF gerados com sucesso!", vbInformation
+End Sub

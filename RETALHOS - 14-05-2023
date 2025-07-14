@@ -1,0 +1,133 @@
+Sub GerarArquivosDXF_RelacaoRetalhos()
+
+    Dim todasAbas As String
+    Dim listaAbas As Collection
+    Set listaAbas = New Collection
+    
+    Dim aba As Worksheet
+    Dim index As Integer: index = 1
+
+    ' Listar todas as abas com índice
+    For Each aba In ThisWorkbook.Sheets
+        todasAbas = todasAbas & index & " - " & aba.Name & vbCrLf
+        listaAbas.Add aba.Name
+        index = index + 1
+    Next aba
+
+    ' Seleção do usuário
+    Dim resposta As String
+    resposta = InputBox("Digite os números das abas que deseja processar, separados por vírgula:" & vbCrLf & _
+                        "(Abas disponíveis:)" & vbCrLf & todasAbas, _
+                        "Selecionar Abas por Número")
+
+    If Trim(resposta) = "" Then
+        MsgBox "Nenhuma aba selecionada.", vbExclamation
+        Exit Sub
+    End If
+
+    Dim numerosSelecionados As Variant
+    Dim selecionadas As Collection
+    Set selecionadas = New Collection
+
+    numerosSelecionados = Split(resposta, ",")
+    Dim i As Integer
+    For i = 0 To UBound(numerosSelecionados)
+        Dim num As Integer
+        On Error Resume Next
+        num = CInt(Trim(numerosSelecionados(i)))
+        If num >= 1 And num <= listaAbas.Count Then
+            selecionadas.Add listaAbas(num)
+        End If
+        On Error GoTo 0
+    Next i
+
+    If selecionadas.Count = 0 Then
+        MsgBox "Nenhuma aba válida selecionada.", vbExclamation
+        Exit Sub
+    End If
+
+    ' Criar pasta raiz "00 - RELACAO DE RETALHOS" se não existir
+    Dim pastaRaiz As String
+    pastaRaiz = ThisWorkbook.Path & "\00 - RELACAO DE RETALHOS"
+    If Dir(pastaRaiz, vbDirectory) = "" Then MkDir pastaRaiz
+
+    ' Processamento das abas
+    Dim ws As Worksheet
+    Dim linha As Long
+    Dim cod As String, espessura As String, qualidade As String
+    Dim largura As Double, altura As Double
+    Dim disponibilidade As String
+    Dim nomeArquivo As String, caminho As String, pastaAba As String, subpastaQualidade As String
+    Dim dxfTexto As String
+    Dim fnum As Integer
+    Dim metragem As Double
+    Dim metragemStr As String
+    Dim nomeAba As Variant
+
+    For Each nomeAba In selecionadas
+        On Error Resume Next
+        Set ws = ThisWorkbook.Sheets(nomeAba)
+        On Error GoTo 0
+
+        If ws Is Nothing Then
+            MsgBox "Aba não encontrada: " & nomeAba, vbExclamation
+        Else
+            ' Criar subpasta da aba dentro da pasta raiz
+            pastaAba = pastaRaiz & "\" & nomeAba
+            If Dir(pastaAba, vbDirectory) = "" Then MkDir pastaAba
+
+            linha = 4
+
+            Do While ws.Cells(linha, 1).Value <> ""
+                cod = Trim(ws.Cells(linha, 1).Value)
+                espessura = Trim(ws.Cells(linha, 2).Value)
+                qualidade = UCase(Trim(ws.Cells(linha, 3).Value))
+                largura = Val(Replace(ws.Cells(linha, 4).Value, " mm", ""))
+                altura = Val(Replace(ws.Cells(linha, 5).Value, " mm", ""))
+                disponibilidade = UCase(Trim(ws.Cells(linha, 6).Value))
+
+                If disponibilidade = "DISPONÍVEL" Then
+                    ' Calcular metragem quadrada
+                    metragem = (largura * altura) / 1000000
+                    metragemStr = Format(metragem, "0.00") & "m²"
+
+                    ' Subpasta por qualidade
+                    If qualidade = "BOA" Then
+                        subpastaQualidade = pastaAba & "\BOA"
+                    Else
+                        subpastaQualidade = pastaAba & "\RAN - RENHURADA"
+                    End If
+
+                    If Dir(subpastaQualidade, vbDirectory) = "" Then MkDir subpastaQualidade
+
+                    ' Nome do arquivo
+                    nomeArquivo = "[COD-" & cod & "]-" & Replace(qualidade, " ", "") & _
+                                  "-[" & largura & "x" & altura & "]-[" & metragemStr & "]-" & _
+                                  Replace(espessura, " ", "") & ".dxf"
+
+                    caminho = subpastaQualidade & "\" & nomeArquivo
+
+                    ' DXF básico
+                    dxfTexto = "0" & vbCrLf & "SECTION" & vbCrLf & "2" & vbCrLf & "ENTITIES" & vbCrLf
+                    dxfTexto = dxfTexto & "0" & vbCrLf & "LWPOLYLINE" & vbCrLf & "8" & vbCrLf & "0" & vbCrLf
+                    dxfTexto = dxfTexto & "90" & vbCrLf & "4" & vbCrLf & "70" & vbCrLf & "1" & vbCrLf
+                    dxfTexto = dxfTexto & "10" & vbCrLf & "0.0" & vbCrLf & "20" & vbCrLf & "0.0" & vbCrLf
+                    dxfTexto = dxfTexto & "10" & vbCrLf & largura & vbCrLf & "20" & vbCrLf & "0.0" & vbCrLf
+                    dxfTexto = dxfTexto & "10" & vbCrLf & largura & vbCrLf & "20" & vbCrLf & altura & vbCrLf
+                    dxfTexto = dxfTexto & "10" & vbCrLf & "0.0" & vbCrLf & "20" & vbCrLf & altura & vbCrLf
+                    dxfTexto = dxfTexto & "0" & vbCrLf & "ENDSEC" & vbCrLf & "0" & vbCrLf & "EOF"
+
+                    ' Salvar arquivo
+                    fnum = FreeFile
+                    Open caminho For Output As #fnum
+                    Print #fnum, dxfTexto
+                    Close #fnum
+                End If
+
+                linha = linha + 1
+            Loop
+        End If
+    Next nomeAba
+
+    MsgBox "Arquivos DXF gerados com sucesso dentro da pasta '00 - RELACAO DE RETALHOS'!", vbInformation
+End Sub
